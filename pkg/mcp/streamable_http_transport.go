@@ -1,3 +1,6 @@
+// Package mcp implements the Model Context Protocol (MCP) server functionality
+// This file contains the MCP-compliant streamable HTTP transport implementation
+// according to the MCP specification: https://modelcontextprotocol.io/specification/
 package mcp
 
 import (
@@ -17,134 +20,173 @@ import (
 )
 
 // StreamableHTTPTransport implements MCP-compliant streamable HTTP transport
+// This transport provides:
+// - Single /mcp endpoint (per MCP specification)
+// - Server-Sent Events (SSE) streaming support
+// - Session management with cryptographically secure session IDs
+// - CORS support with origin validation
+// - Graceful shutdown capabilities
 type StreamableHTTPTransport struct {
-	server      *http.Server
-	mcpServer   *Server
-	config      *StreamableHTTPConfig
-	sessions    map[string]*types.Session
-	sessionsMux sync.RWMutex
-	connections int32
+	server      *http.Server           // HTTP server instance
+	mcpServer   *Server                // Reference to the MCP server
+	config      *StreamableHTTPConfig  // Transport configuration
+	sessions    map[string]*types.Session // Active session storage
+	sessionsMux sync.RWMutex           // Mutex for thread-safe session access
+	connections int32                  // Current connection count (unused but reserved for future use)
 }
 
 // StreamableHTTPConfig contains MCP-compliant HTTP transport configuration
+// All settings follow MCP specification requirements for streamable HTTP transport
 type StreamableHTTPConfig struct {
-	Host             string
-	Port             int
-	SessionTimeout   time.Duration
-	MaxConnections   int
-	CORSEnabled      bool
-	CORSOrigins      []string
+	Host             string        // Server host (defaults to 127.0.0.1 for security)
+	Port             int           // Server port (e.g., 8080)
+	SessionTimeout   time.Duration // How long sessions remain active without activity
+	MaxConnections   int           // Maximum concurrent connections allowed
+	CORSEnabled      bool          // Whether to enable CORS headers
+	CORSOrigins      []string      // Allowed origins for CORS requests
 }
 
 // NewStreamableHTTPTransport creates a new MCP-compliant HTTP transport instance
+// This constructor sets up the HTTP server with MCP protocol compliance:
+// - Defaults to localhost binding for security per MCP specification
+// - Configures session management and CORS as needed
+// - Starts background session cleanup routine
 func NewStreamableHTTPTransport(mcpServer *Server, config *StreamableHTTPConfig) *StreamableHTTPTransport {
+	// Apply secure defaults if no config provided
 	if config == nil {
 		config = &StreamableHTTPConfig{
-			Host:             "127.0.0.1",
-			Port:             8080,
-			SessionTimeout:   5 * time.Minute,
-			MaxConnections:   100,
-			CORSEnabled:      true,
-			CORSOrigins:      []string{"*"},
+			Host:             "127.0.0.1",        // Localhost for security (MCP recommendation)
+			Port:             8080,               // Default HTTP port
+			SessionTimeout:   5 * time.Minute,   // 5 minute session timeout
+			MaxConnections:   100,               // Reasonable connection limit
+			CORSEnabled:      true,              // Enable CORS for web clients
+			CORSOrigins:      []string{"*"},     // Allow all origins (configure for production)
 		}
 	}
 
+	// Initialize the transport with thread-safe session storage
 	transport := &StreamableHTTPTransport{
 		mcpServer: mcpServer,
 		config:    config,
-		sessions:  make(map[string]*types.Session),
+		sessions:  make(map[string]*types.Session), // Thread-safe session map
 	}
 
+	// Setup HTTP routing with MCP-compliant endpoints
 	mux := http.NewServeMux()
 	transport.setupRoutes(mux)
 
+	// Create HTTP server with CORS middleware
 	transport.server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", config.Host, config.Port),
-		Handler: transport.corsMiddleware(mux),
+		Handler: transport.corsMiddleware(mux), // Wrap with CORS support
 	}
 
-	// Start session cleanup goroutine
+	// Start background session cleanup goroutine to prevent memory leaks
 	go transport.cleanupExpiredSessions()
 
 	return transport
 }
 
 // setupRoutes configures MCP-compliant HTTP routes
+// Per MCP specification, only a single endpoint is allowed for streamable HTTP transport
 func (t *StreamableHTTPTransport) setupRoutes(mux *http.ServeMux) {
-	// Single MCP endpoint as per specification
+	// Single MCP endpoint as per specification - handles both POST (JSON-RPC) and GET (SSE)
 	mux.HandleFunc("/mcp", t.handleMCP)
 }
 
 // corsMiddleware adds CORS headers if enabled
+// This middleware handles CORS preflight requests and adds appropriate headers
+// for cross-origin requests from web browsers
 func (t *StreamableHTTPTransport) corsMiddleware(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Apply CORS headers if enabled in configuration
 		if t.config.CORSEnabled {
 			origin := r.Header.Get("Origin")
+			// Only allow configured origins for security
 			if t.isOriginAllowed(origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 			}
+			// Set required CORS headers for MCP protocol
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id")
-			w.Header().Set("Access-Control-Max-Age", "86400")
+			w.Header().Set("Access-Control-Max-Age", "86400") // Cache preflight for 24 hours
 
+			// Handle CORS preflight requests
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
 		}
+		// Continue to the actual handler
 		handler.ServeHTTP(w, r)
 	})
 }
 
 // isOriginAllowed checks if the origin is allowed for CORS
+// This implements security by validating the Origin header against the configured allowed origins
 func (t *StreamableHTTPTransport) isOriginAllowed(origin string) bool {
+	// Check if the request origin matches any configured allowed origins
 	for _, allowed := range t.config.CORSOrigins {
 		if allowed == "*" || allowed == origin {
 			return true
 		}
 	}
+	// Origin not found in allowed list
 	return false
 }
 
 // handleMCP handles MCP requests according to the streamable HTTP specification
+// This is the main entry point for all MCP protocol interactions
+// Supports both POST (JSON-RPC) and GET (SSE stream establishment) methods
 func (t *StreamableHTTPTransport) handleMCP(w http.ResponseWriter, r *http.Request) {
-	// Validate MCP Protocol Version
+	// Step 1: Validate required MCP Protocol Version header
+	// This is mandatory per MCP specification
 	protocolVersion := r.Header.Get("MCP-Protocol-Version")
 	if protocolVersion == "" {
 		http.Error(w, "MCP-Protocol-Version header required", http.StatusBadRequest)
 		return
 	}
 
-	// Handle session management
+	// Step 2: Handle optional session management
+	// Sessions provide state continuity across multiple requests
 	sessionID := r.Header.Get("Mcp-Session-Id")
 	if sessionID != "" {
+		// Validate session exists and hasn't expired
 		if !t.isValidSession(sessionID) {
 			http.Error(w, "Invalid or expired session", http.StatusUnauthorized)
 			return
 		}
+		// Update session activity to prevent timeout
 		t.updateSessionActivity(sessionID)
 	}
 
+	// Step 3: Route based on HTTP method
 	switch r.Method {
 	case http.MethodPost:
+		// Handle JSON-RPC requests (with optional SSE streaming)
 		t.handlePOST(w, r, sessionID)
 	case http.MethodGet:
+		// Handle SSE stream establishment
 		t.handleGET(w, r, sessionID)
 	default:
+		// Only POST and GET are supported per MCP specification
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 // handlePOST handles POST requests with JSON-RPC
+// This method processes standard MCP JSON-RPC requests and can optionally
+// stream responses via Server-Sent Events if the client accepts it
 func (t *StreamableHTTPTransport) handlePOST(w http.ResponseWriter, r *http.Request, sessionID string) {
-	// Validate Accept header
+	// Step 1: Validate Accept header per MCP specification
+	// Client must accept either JSON responses or SSE streaming
 	accept := r.Header.Get("Accept")
 	if !strings.Contains(accept, "application/json") && !strings.Contains(accept, "text/event-stream") {
 		http.Error(w, "Accept header must include application/json or text/event-stream", http.StatusBadRequest)
 		return
 	}
 
-	// Read and parse JSON-RPC request
+	// Step 2: Read the JSON-RPC request from request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)
@@ -152,26 +194,32 @@ func (t *StreamableHTTPTransport) handlePOST(w http.ResponseWriter, r *http.Requ
 	}
 	defer r.Body.Close()
 
+	// Step 3: Parse JSON-RPC request according to MCP specification
 	var mcpReq types.MCPRequest
 	if err := json.Unmarshal(body, &mcpReq); err != nil {
+		// Send proper JSON-RPC error response for invalid requests
 		t.writeErrorResponse(w, nil, ErrorCodeInvalidRequest, "Invalid JSON-RPC request", err.Error())
 		return
 	}
 
-	// Process MCP request
+	// Step 4: Process the request through the MCP server
 	response := t.mcpServer.HandleRequest(mcpReq)
 
-	// Check if client accepts SSE streaming
+	// Step 5: Choose response format based on client preferences and request type
 	if strings.Contains(accept, "text/event-stream") && t.shouldStream(&mcpReq) {
+		// Use SSE streaming for real-time responses (e.g., long-running operations)
 		t.writeSSEResponse(w, response, sessionID)
 	} else {
+		// Use standard JSON response for quick operations
 		t.writeJSONResponse(w, response)
 	}
 }
 
 // handleGET handles GET requests for SSE streams
+// This method establishes Server-Sent Event streams for real-time communication
+// Used when clients want to maintain persistent connections for streaming updates
 func (t *StreamableHTTPTransport) handleGET(w http.ResponseWriter, r *http.Request, sessionID string) {
-	// Validate Accept header for SSE
+	// Step 1: Validate Accept header - GET requests must accept SSE
 	accept := r.Header.Get("Accept")
 	if !strings.Contains(accept, "text/event-stream") {
 		http.Error(w, "Accept header must include text/event-stream for GET requests", http.StatusBadRequest)
@@ -260,21 +308,24 @@ func (t *StreamableHTTPTransport) setupSSEStream(w http.ResponseWriter, r *http.
 }
 
 // writeJSONResponse writes a standard JSON response
+// Maps JSON-RPC error codes to appropriate HTTP status codes per MCP specification
 func (t *StreamableHTTPTransport) writeJSONResponse(w http.ResponseWriter, response types.MCPResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	
+	// Determine HTTP status code based on JSON-RPC error codes
 	statusCode := http.StatusOK
 	if response.Error != nil {
 		switch response.Error.Code {
-		case ErrorCodeInvalidRequest:
+		case ErrorCodeInvalidRequest:  // -32600
 			statusCode = http.StatusBadRequest
-		case ErrorCodeMethodNotFound:
+		case ErrorCodeMethodNotFound:  // -32601
 			statusCode = http.StatusNotFound
-		case ErrorCodeInvalidParams:
+		case ErrorCodeInvalidParams:   // -32602
 			statusCode = http.StatusBadRequest
-		case ErrorCodeInternalError:
+		case ErrorCodeInternalError:   // -32603
 			statusCode = http.StatusInternalServerError
 		default:
+			// Unknown error codes default to internal server error
 			statusCode = http.StatusInternalServerError
 		}
 	}
@@ -283,52 +334,66 @@ func (t *StreamableHTTPTransport) writeJSONResponse(w http.ResponseWriter, respo
 	json.NewEncoder(w).Encode(response)
 }
 
-// writeErrorResponse writes an error response
+// writeErrorResponse writes a JSON-RPC error response
+// This helper function creates properly formatted MCP error responses
 func (t *StreamableHTTPTransport) writeErrorResponse(w http.ResponseWriter, id interface{}, code int, message, data string) {
+	// Create a proper JSON-RPC 2.0 error response
 	response := types.MCPResponse{
-		JSONRPC: "2.0",
-		ID:      id,
+		JSONRPC: "2.0",           // Required JSON-RPC version
+		ID:      id,              // Request ID (may be nil for parse errors)
 		Error: &types.MCPError{
-			Code:    code,
-			Message: message,
-			Data:    data,
+			Code:    code,        // Standard JSON-RPC error codes
+			Message: message,     // Human-readable error message
+			Data:    data,        // Additional error details
 		},
 	}
 	t.writeJSONResponse(w, response)
 }
 
+// ==========================================
 // Session Management Functions
+// ==========================================
+// These functions provide MCP-compliant session management with
+// cryptographically secure session IDs and automatic cleanup
 
 // createSession generates a new cryptographically secure session ID
+// Sessions are used to maintain state across multiple MCP requests
+// Per MCP specification, session IDs must be globally unique and secure
 func (t *StreamableHTTPTransport) createSession() string {
+	// Generate 16 random bytes for cryptographically secure session ID
 	bytes := make([]byte, 16)
 	rand.Read(bytes)
-	sessionID := hex.EncodeToString(bytes)
+	sessionID := hex.EncodeToString(bytes) // Convert to hex string (32 characters)
 
+	// Store session with thread-safe access
 	t.sessionsMux.Lock()
 	defer t.sessionsMux.Unlock()
 
+	// Create new session record
 	t.sessions[sessionID] = &types.Session{
 		ID:        sessionID,
 		CreatedAt: time.Now(),
-		LastSeen:  time.Now(),
-		Active:    true,
+		LastSeen:  time.Now(),  // Initialize activity timestamp
+		Active:    true,        // Mark session as active
 	}
 
 	return sessionID
 }
 
 // isValidSession checks if a session ID is valid and active
+// This validates both session existence and expiration status
 func (t *StreamableHTTPTransport) isValidSession(sessionID string) bool {
+	// Use read lock for thread-safe session access
 	t.sessionsMux.RLock()
 	defer t.sessionsMux.RUnlock()
 
+	// Check if session exists and is marked as active
 	session, exists := t.sessions[sessionID]
 	if !exists || !session.Active {
 		return false
 	}
 
-	// Check if session has expired
+	// Check if session has expired based on configured timeout
 	if time.Since(session.LastSeen) > t.config.SessionTimeout {
 		return false
 	}
@@ -347,14 +412,22 @@ func (t *StreamableHTTPTransport) updateSessionActivity(sessionID string) {
 }
 
 // cleanupExpiredSessions removes expired sessions periodically
+// This background goroutine prevents memory leaks by cleaning up old sessions
+// Runs every minute to check for and remove expired sessions
 func (t *StreamableHTTPTransport) cleanupExpiredSessions() {
+	// Create ticker for periodic cleanup (every minute)
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
+	// Run cleanup loop until the transport is shut down
 	for range ticker.C {
+		// Use write lock since we'll be modifying the sessions map
 		t.sessionsMux.Lock()
 		now := time.Now()
+		
+		// Check each session for expiration
 		for id, session := range t.sessions {
+			// If session hasn't been active within timeout period, remove it
 			if now.Sub(session.LastSeen) > t.config.SessionTimeout {
 				delete(t.sessions, id)
 				log.Printf("Cleaned up expired session: %s", id)
@@ -365,27 +438,38 @@ func (t *StreamableHTTPTransport) cleanupExpiredSessions() {
 }
 
 // generateEventID generates a unique event ID for SSE
+// Event IDs are used in Server-Sent Events for message ordering and resumability
 func (t *StreamableHTTPTransport) generateEventID() string {
+	// Generate 8 random bytes for a unique event ID
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
+	// Return as 16-character hex string
 	return hex.EncodeToString(bytes)
 }
 
-// Transport interface implementation
+// ==========================================
+// Transport Interface Implementation
+// ==========================================
+// These methods implement the Transport interface for lifecycle management
 
 // Start starts the HTTP server
+// This method blocks until the server shuts down or encounters an error
 func (t *StreamableHTTPTransport) Start() error {
 	log.Printf("Starting MCP streamable HTTP server on %s", t.server.Addr)
+	// ListenAndServe blocks until server shutdown
 	return t.server.ListenAndServe()
 }
 
 // Stop gracefully shuts down the HTTP server
+// Uses context for timeout control and ensures clean shutdown of all connections
 func (t *StreamableHTTPTransport) Stop(ctx context.Context) error {
 	log.Println("Shutting down MCP streamable HTTP server...")
+	// Graceful shutdown with context timeout
 	return t.server.Shutdown(ctx)
 }
 
 // GetAddr returns the server address
+// Useful for testing and configuration verification
 func (t *StreamableHTTPTransport) GetAddr() string {
 	return t.server.Addr
 }
