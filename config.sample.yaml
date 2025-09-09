@@ -6,10 +6,14 @@ server:
   # Transport method: "stdio" or "http"
   transport: "stdio"
   
-  # HTTP transport configuration (only used when transport is "http")
+  # MCP-compliant streamable HTTP transport configuration (only used when transport is "http")
   http:
-    host: "0.0.0.0"
+    host: "127.0.0.1"  # Default to localhost for security per MCP spec
     port: 8080
+    
+    # MCP session management
+    session_timeout: "5m"    # Session timeout duration
+    max_connections: 100     # Maximum concurrent connections
     
     # CORS configuration
     cors:
@@ -19,18 +23,6 @@ server:
         # For production, specify allowed origins:
         # - "https://your-frontend.com"
         # - "https://api.your-app.com"
-    
-    # HTTP timeout configuration
-    timeout:
-      read: "30s"    # Time to read request
-      write: "30s"   # Time to write response
-      idle: "120s"   # Keep-alive timeout
-    
-    # TLS configuration (HTTPS)
-    tls:
-      enabled: false
-      cert_file: ""  # Path to certificate file
-      key_file: ""   # Path to private key file
 
 # Logging configuration
 logging:
@@ -73,7 +65,10 @@ security:
 # server:
 #   transport: "http"
 #   http:
+#     host: "127.0.0.1"
 #     port: 8080
+#     session_timeout: "10m"
+#     max_connections: 50
 #     cors:
 #       enabled: true
 #       origins: ["http://localhost:3000", "http://localhost:8080"]
@@ -85,14 +80,13 @@ security:
 # server:
 #   transport: "http"
 #   http:
+#     host: "127.0.0.1"  # Keep localhost for security, use proxy/load balancer for external access
 #     port: 8080
+#     session_timeout: "5m"
+#     max_connections: 200
 #     cors:
 #       enabled: true
 #       origins: ["https://your-production-domain.com"]
-#     tls:
-#       enabled: true
-#       cert_file: "/path/to/cert.pem"
-#       key_file: "/path/to/key.pem"
 # logging:
 #   level: "info"
 #   format: "json"

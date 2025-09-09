@@ -18,33 +18,19 @@ type ServerConfig struct {
 	HTTP      HTTPConfig `yaml:"http" json:"http"`
 }
 
-// HTTPConfig contains HTTP transport configuration
+// HTTPConfig contains MCP-compliant HTTP transport configuration
 type HTTPConfig struct {
-	Host    string      `yaml:"host" json:"host"`
-	Port    int         `yaml:"port" json:"port"`
-	CORS    CORSConfig  `yaml:"cors" json:"cors"`
-	Timeout TimeoutConfig `yaml:"timeout" json:"timeout"`
-	TLS     TLSConfig   `yaml:"tls" json:"tls"`
+	Host             string        `yaml:"host" json:"host"`
+	Port             int           `yaml:"port" json:"port"`
+	SessionTimeout   time.Duration `yaml:"session_timeout" json:"session_timeout"`
+	MaxConnections   int           `yaml:"max_connections" json:"max_connections"`
+	CORS             CORSConfig    `yaml:"cors" json:"cors"`
 }
 
 // CORSConfig contains CORS configuration
 type CORSConfig struct {
 	Enabled bool     `yaml:"enabled" json:"enabled"`
 	Origins []string `yaml:"origins" json:"origins"`
-}
-
-// TimeoutConfig contains timeout configuration
-type TimeoutConfig struct {
-	Read  time.Duration `yaml:"read" json:"read"`
-	Write time.Duration `yaml:"write" json:"write"`
-	Idle  time.Duration `yaml:"idle" json:"idle"`
-}
-
-// TLSConfig contains TLS configuration
-type TLSConfig struct {
-	Enabled  bool   `yaml:"enabled" json:"enabled"`
-	CertFile string `yaml:"cert_file" json:"cert_file"`
-	KeyFile  string `yaml:"key_file" json:"key_file"`
 }
 
 // LoggingConfig contains logging configuration
@@ -102,19 +88,13 @@ func Default() *Config {
 		Server: ServerConfig{
 			Transport: "stdio",
 			HTTP: HTTPConfig{
-				Host: "0.0.0.0",
-				Port: 8080,
+				Host:             "127.0.0.1", // Default to localhost for security
+				Port:             8080,
+				SessionTimeout:   5 * time.Minute,
+				MaxConnections:   100,
 				CORS: CORSConfig{
 					Enabled: true,
 					Origins: []string{"*"},
-				},
-				Timeout: TimeoutConfig{
-					Read:  30 * time.Second,
-					Write: 30 * time.Second,
-					Idle:  120 * time.Second,
-				},
-				TLS: TLSConfig{
-					Enabled: false,
 				},
 			},
 		},

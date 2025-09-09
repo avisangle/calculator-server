@@ -5,21 +5,13 @@
   "server": {
     "transport": "stdio",
     "http": {
-      "host": "0.0.0.0",
+      "host": "127.0.0.1",
       "port": 8080,
+      "session_timeout": "5m",
+      "max_connections": 100,
       "cors": {
         "enabled": true,
         "origins": ["*"]
-      },
-      "timeout": {
-        "read": "30s",
-        "write": "30s", 
-        "idle": "120s"
-      },
-      "tls": {
-        "enabled": false,
-        "cert_file": "",
-        "key_file": ""
       }
     }
   },

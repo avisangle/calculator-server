@@ -181,8 +181,8 @@ tools:
 		t.Error("Expected CORS to be disabled")
 	}
 
-	if cfg.Server.HTTP.Timeout.Read != 45*time.Second {
-		t.Errorf("Expected read timeout 45s, got %v", cfg.Server.HTTP.Timeout.Read)
+	if cfg.Server.HTTP.SessionTimeout != 45*time.Second {
+		t.Errorf("Expected session timeout 45s, got %v", cfg.Server.HTTP.SessionTimeout)
 	}
 
 	if cfg.Logging.Level != "debug" {

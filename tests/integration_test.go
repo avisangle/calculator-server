@@ -29,28 +29,23 @@ func TestIntegrationHTTPTransportWithConfig(t *testing.T) {
 	// Register handlers
 	mathHandler := handlers.NewMathHandler()
 	statsHandler := handlers.NewStatsHandler()
-	financeHandler := handlers.NewFinanceHandler()
 
 	server.RegisterTool("basic_math", "Basic math operations", getBasicMathSchema(), mathHandler.HandleBasicMath)
 	server.RegisterTool("statistics", "Statistical analysis", getStatisticsSchema(), statsHandler.HandleStatistics)
 
-	// Create HTTP transport with config
-	httpConfig := &mcp.HTTPConfig{
-		Host:         cfg.Server.HTTP.Host,
-		Port:         cfg.Server.HTTP.Port,
-		CORSEnabled:  cfg.Server.HTTP.CORS.Enabled,
-		CORSOrigins:  cfg.Server.HTTP.CORS.Origins,
-		ReadTimeout:  cfg.Server.HTTP.Timeout.Read,
-		WriteTimeout: cfg.Server.HTTP.Timeout.Write,
-		IdleTimeout:  cfg.Server.HTTP.Timeout.Idle,
+	// Create MCP-compliant streamable HTTP transport with config
+	httpConfig := &mcp.StreamableHTTPConfig{
+		Host:           cfg.Server.HTTP.Host,
+		Port:           cfg.Server.HTTP.Port,
+		SessionTimeout: cfg.Server.HTTP.SessionTimeout,
+		MaxConnections: cfg.Server.HTTP.MaxConnections,
+		CORSEnabled:    cfg.Server.HTTP.CORS.Enabled,
+		CORSOrigins:    cfg.Server.HTTP.CORS.Origins,
 	}
 
-	httpTransport := mcp.NewHTTPTransport(server, httpConfig)
+	httpTransport := mcp.NewStreamableHTTPTransport(server, httpConfig)
 
 	// Start server in background
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	go func() {
 		if err := httpTransport.Start(); err != nil {
 			t.Logf("HTTP server error: %v", err)
@@ -60,31 +55,22 @@ func TestIntegrationHTTPTransportWithConfig(t *testing.T) {
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
 
-	// Test health endpoint
-	t.Run("Health Check", func(t *testing.T) {
-		resp, err := http.Get("http://localhost:8082/health")
-		if err != nil {
-			t.Fatalf("Health check failed: %v", err)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", resp.StatusCode)
+	// Test MCP tools list via single endpoint
+	t.Run("MCP Tools List", func(t *testing.T) {
+		mcpRequest := types.MCPRequest{
+			JSONRPC: "2.0",
+			ID:      "tools-list",
+			Method:  "tools/list",
 		}
 
-		var health map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
-			t.Errorf("Failed to decode health response: %v", err)
-		}
+		requestBody, _ := json.Marshal(mcpRequest)
+		client := &http.Client{}
+		req, _ := http.NewRequest("POST", "http://localhost:8082/mcp", bytes.NewBuffer(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("MCP-Protocol-Version", "2024-11-05")
 
-		if health["status"] != "healthy" {
-			t.Errorf("Expected healthy status, got %v", health["status"])
-		}
-	})
-
-	// Test tools list endpoint
-	t.Run("Tools List", func(t *testing.T) {
-		resp, err := http.Get("http://localhost:8082/tools")
+		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatalf("Tools list failed: %v", err)
 		}
@@ -114,7 +100,13 @@ func TestIntegrationHTTPTransportWithConfig(t *testing.T) {
 		}
 
 		requestBody, _ := json.Marshal(mcpRequest)
-		resp, err := http.Post("http://localhost:8082/mcp", "application/json", bytes.NewBuffer(requestBody))
+		client := &http.Client{}
+		req, _ := http.NewRequest("POST", "http://localhost:8082/mcp", bytes.NewBuffer(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("MCP-Protocol-Version", "2024-11-05")
+
+		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatalf("MCP request failed: %v", err)
 		}
@@ -181,22 +173,21 @@ func TestIntegrationConfigLoaderWithServer(t *testing.T) {
 		t.Fatalf("Configuration validation failed: %v", err)
 	}
 
-	// Test that we can create HTTP transport from config
-	httpConfig := &mcp.HTTPConfig{
-		Host:         cfg.Server.HTTP.Host,
-		Port:         cfg.Server.HTTP.Port,
-		CORSEnabled:  cfg.Server.HTTP.CORS.Enabled,
-		CORSOrigins:  cfg.Server.HTTP.CORS.Origins,
-		ReadTimeout:  cfg.Server.HTTP.Timeout.Read,
-		WriteTimeout: cfg.Server.HTTP.Timeout.Write,
-		IdleTimeout:  cfg.Server.HTTP.Timeout.Idle,
+	// Test that we can create MCP-compliant streamable HTTP transport from config
+	httpConfig := &mcp.StreamableHTTPConfig{
+		Host:           cfg.Server.HTTP.Host,
+		Port:           cfg.Server.HTTP.Port,
+		SessionTimeout: cfg.Server.HTTP.SessionTimeout,
+		MaxConnections: cfg.Server.HTTP.MaxConnections,
+		CORSEnabled:    cfg.Server.HTTP.CORS.Enabled,
+		CORSOrigins:    cfg.Server.HTTP.CORS.Origins,
 	}
 
 	server := mcp.NewServer()
-	httpTransport := mcp.NewHTTPTransport(server, httpConfig)
+	httpTransport := mcp.NewStreamableHTTPTransport(server, httpConfig)
 
 	// Test that address is correctly configured
-	expectedAddr := "0.0.0.0:8083"
+	expectedAddr := "127.0.0.1:8083"
 	if httpTransport.GetAddr() != expectedAddr {
 		t.Errorf("Expected address %s, got %s", expectedAddr, httpTransport.GetAddr())
 	}

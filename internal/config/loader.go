@@ -206,23 +206,12 @@ func mergeConfig(dest, src *Config) error {
 		dest.Server.HTTP.CORS.Origins = src.Server.HTTP.CORS.Origins
 	}
 	
-	// Merge timeout settings
-	if src.Server.HTTP.Timeout.Read != 0 {
-		dest.Server.HTTP.Timeout.Read = src.Server.HTTP.Timeout.Read
+	// Merge session settings
+	if src.Server.HTTP.SessionTimeout != 0 {
+		dest.Server.HTTP.SessionTimeout = src.Server.HTTP.SessionTimeout
 	}
-	if src.Server.HTTP.Timeout.Write != 0 {
-		dest.Server.HTTP.Timeout.Write = src.Server.HTTP.Timeout.Write
-	}
-	if src.Server.HTTP.Timeout.Idle != 0 {
-		dest.Server.HTTP.Timeout.Idle = src.Server.HTTP.Timeout.Idle
-	}
-	
-	// Merge TLS settings
-	if src.Server.HTTP.TLS.CertFile != "" {
-		dest.Server.HTTP.TLS.CertFile = src.Server.HTTP.TLS.CertFile
-	}
-	if src.Server.HTTP.TLS.KeyFile != "" {
-		dest.Server.HTTP.TLS.KeyFile = src.Server.HTTP.TLS.KeyFile
+	if src.Server.HTTP.MaxConnections != 0 {
+		dest.Server.HTTP.MaxConnections = src.Server.HTTP.MaxConnections
 	}
 	
 	// Merge logging settings

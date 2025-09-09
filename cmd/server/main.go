@@ -82,19 +82,18 @@ func main() {
 }
 
 func startHTTPServerWithConfig(server *mcp.Server, cfg *config.Config) {
-	// Configure HTTP transport from config
-	httpConfig := &mcp.HTTPConfig{
-		Host:         cfg.Server.HTTP.Host,
-		Port:         cfg.Server.HTTP.Port,
-		CORSEnabled:  cfg.Server.HTTP.CORS.Enabled,
-		CORSOrigins:  cfg.Server.HTTP.CORS.Origins,
-		ReadTimeout:  cfg.Server.HTTP.Timeout.Read,
-		WriteTimeout: cfg.Server.HTTP.Timeout.Write,
-		IdleTimeout:  cfg.Server.HTTP.Timeout.Idle,
+	// Configure MCP-compliant streamable HTTP transport from config
+	httpConfig := &mcp.StreamableHTTPConfig{
+		Host:             cfg.Server.HTTP.Host,
+		Port:             cfg.Server.HTTP.Port,
+		SessionTimeout:   cfg.Server.HTTP.SessionTimeout,
+		MaxConnections:   cfg.Server.HTTP.MaxConnections,
+		CORSEnabled:      cfg.Server.HTTP.CORS.Enabled,
+		CORSOrigins:      cfg.Server.HTTP.CORS.Origins,
 	}
 
-	// Create HTTP transport
-	httpTransport := mcp.NewHTTPTransport(server, httpConfig)
+	// Create MCP-compliant streamable HTTP transport
+	httpTransport := mcp.NewStreamableHTTPTransport(server, httpConfig)
 
 	// Setup graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
@@ -106,17 +105,10 @@ func startHTTPServerWithConfig(server *mcp.Server, cfg *config.Config) {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting calculator server with HTTP transport on %s:%d...", 
+		log.Printf("Starting calculator server with MCP streamable HTTP transport on %s:%d...", 
 			cfg.Server.HTTP.Host, cfg.Server.HTTP.Port)
 		
-		var err error
-		if cfg.Server.HTTP.TLS.Enabled {
-			err = httpTransport.StartTLS(cfg.Server.HTTP.TLS.CertFile, cfg.Server.HTTP.TLS.KeyFile)
-		} else {
-			err = httpTransport.Start()
-		}
-		
-		if err != nil {
+		if err := httpTransport.Start(); err != nil {
 			log.Printf("HTTP server error: %v", err)
 			cancel()
 		}

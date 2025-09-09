@@ -223,20 +223,36 @@ go build -o calculator-server ./cmd/server
 }
 ```
 
-## 🌐 HTTP Transport
+## 🌐 MCP Streamable HTTP Transport
 
-The server supports HTTP transport for web-based integrations and REST-style access.
+The server implements **MCP-compliant streamable HTTP transport** according to the official MCP specification, providing real-time communication with Server-Sent Events (SSE) streaming support.
+
+### MCP Protocol Compliance
+
+✅ **Single Endpoint**: `/mcp` only (per MCP specification)  
+✅ **Required Headers**: `MCP-Protocol-Version`, `Accept`  
+✅ **Session Management**: Cryptographically secure session IDs  
+✅ **SSE Streaming**: Server-Sent Events for real-time responses  
+✅ **CORS Support**: Origin validation and security headers  
 
 ### HTTP Endpoints
 
-#### Main MCP Endpoint
-- **POST /mcp** - Main MCP JSON-RPC endpoint
-- Content-Type: `application/json`
-- Accepts standard MCP JSON-RPC requests
+#### Single MCP Endpoint (Specification Compliant)
+- **POST /mcp** - MCP JSON-RPC with optional SSE streaming
+- **GET /mcp** - SSE stream establishment
+- **OPTIONS /mcp** - CORS preflight handling
+
+### Example Usage
 
 ```bash
+# Start MCP-compliant HTTP server
+./calculator-server -transport=http -port=8080
+
+# Basic JSON-RPC request
 curl -X POST http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "MCP-Protocol-Version: 2024-11-05" \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
@@ -250,77 +266,63 @@ curl -X POST http://localhost:8080/mcp \
       }
     }
   }'
+
+# SSE streaming request (for real-time responses)
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -H "MCP-Protocol-Version: 2024-11-05" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "statistics",
+      "arguments": {"data": [1,2,3,4,5], "operation": "mean"}
+    }
+  }'
+
+# Establish SSE stream connection
+curl -X GET http://localhost:8080/mcp \
+  -H "Accept: text/event-stream" \
+  -H "MCP-Protocol-Version: 2024-11-05"
 ```
 
-#### Convenience Endpoints
-- **GET /health** - Health check endpoint
-- **GET /tools** - List available tools
-- **GET /metrics** - Basic server metrics
+### Session Management
+
+The server supports optional MCP session management:
 
 ```bash
-# Health check
-curl http://localhost:8080/health
-
-# List tools
-curl http://localhost:8080/tools
-
-# Server metrics
-curl http://localhost:8080/metrics
+# Request with session ID
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json" \
+  -H "MCP-Protocol-Version: 2024-11-05" \
+  -H "Mcp-Session-Id: abc123def456" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
-#### Example HTTP Usage
-
-```bash
-# Start HTTP server
-./calculator-server -transport=http -port=8080
-
-# Basic math calculation
-curl -X POST http://localhost:8080/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"basic_math","arguments":{"operation":"multiply","operands":[7,8],"precision":2}}}'
-
-# Expression evaluation
-curl -X POST http://localhost:8080/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"expression_eval","arguments":{"expression":"sqrt(x^2 + y^2)","variables":{"x":3,"y":4}}}}'
-
-# Statistical analysis
-curl -X POST http://localhost:8080/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"statistics","arguments":{"data":[1,2,3,4,5],"operation":"mean"}}}'
-```
-
-### CORS Support
-
-The server includes full CORS support for web applications:
+### Configuration
 
 ```yaml
 server:
+  transport: "http"
   http:
+    host: "127.0.0.1"  # Localhost for security (per MCP spec)
+    port: 8080
+    session_timeout: "5m"
+    max_connections: 100
     cors:
       enabled: true
-      origins: 
-        - "https://your-frontend.com"
-        - "http://localhost:3000"  # Development
+      origins: ["*"]  # Configure appropriately for production
 ```
 
-### TLS/HTTPS Support
+### Security Features
 
-Enable HTTPS with TLS certificates:
-
-```yaml
-server:
-  http:
-    tls:
-      enabled: true
-      cert_file: "/path/to/certificate.pem"
-      key_file: "/path/to/private_key.pem"
-```
-
-Or via command line:
-```bash
-./calculator-server -transport=http -config=tls-config.yaml
-```
+- **Origin Validation**: CORS origin checking
+- **Session Security**: Cryptographically secure session IDs
+- **Local Binding**: Default to localhost for security
+- **Protocol Enforcement**: Strict MCP protocol compliance
 
 ## 🏗️ Project Structure
 
