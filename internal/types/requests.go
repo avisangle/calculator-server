@@ -5,14 +5,14 @@ import "encoding/json"
 // MCP Protocol Types
 type MCPRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
-	ID      interface{}     `json:"id,omitempty"`
+	ID      interface{}     `json:"id"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
 type MCPResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
+	ID      interface{} `json:"id"`
 	Result  interface{} `json:"result,omitempty"`
 	Error   *MCPError   `json:"error,omitempty"`
 }
@@ -102,4 +102,52 @@ type FinancialResult struct {
 	Result      float64                `json:"result"`
 	Breakdown   map[string]interface{} `json:"breakdown,omitempty"`
 	Description string                 `json:"description,omitempty"`
+}
+
+// HTTP-specific types and structures
+type HTTPRequestMetadata struct {
+	UserAgent    string            `json:"user_agent,omitempty"`
+	RemoteAddr   string            `json:"remote_addr,omitempty"`
+	Headers      map[string]string `json:"headers,omitempty"`
+	Timestamp    string            `json:"timestamp,omitempty"`
+	RequestID    string            `json:"request_id,omitempty"`
+}
+
+type HTTPResponse struct {
+	MCPResponse
+	Metadata *HTTPRequestMetadata `json:"metadata,omitempty"`
+}
+
+type HealthCheckResponse struct {
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp"`
+	Version   string `json:"version"`
+	Uptime    string `json:"uptime,omitempty"`
+}
+
+type MetricsResponse struct {
+	Server   ServerMetrics   `json:"server"`
+	Requests RequestMetrics  `json:"requests"`
+	Tools    []ToolMetrics   `json:"tools,omitempty"`
+}
+
+type ServerMetrics struct {
+	Uptime    string `json:"uptime"`
+	Version   string `json:"version"`
+	Transport string `json:"transport"`
+	StartTime string `json:"start_time,omitempty"`
+}
+
+type RequestMetrics struct {
+	Total        int64   `json:"total"`
+	Success      int64   `json:"success"`
+	Errors       int64   `json:"errors"`
+	AvgResponse  float64 `json:"avg_response_time_ms,omitempty"`
+}
+
+type ToolMetrics struct {
+	Name        string  `json:"name"`
+	Invocations int64   `json:"invocations"`
+	Errors      int64   `json:"errors"`
+	AvgDuration float64 `json:"avg_duration_ms"`
 }

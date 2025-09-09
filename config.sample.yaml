@@ -1,0 +1,102 @@
+# Calculator Server Configuration - YAML Format
+# Complete configuration file with all options and their default values
+
+# Server configuration
+server:
+  # Transport method: "stdio" or "http"
+  transport: "stdio"
+  
+  # HTTP transport configuration (only used when transport is "http")
+  http:
+    host: "0.0.0.0"
+    port: 8080
+    
+    # CORS configuration
+    cors:
+      enabled: true
+      origins:
+        - "*"
+        # For production, specify allowed origins:
+        # - "https://your-frontend.com"
+        # - "https://api.your-app.com"
+    
+    # HTTP timeout configuration
+    timeout:
+      read: "30s"    # Time to read request
+      write: "30s"   # Time to write response
+      idle: "120s"   # Keep-alive timeout
+    
+    # TLS configuration (HTTPS)
+    tls:
+      enabled: false
+      cert_file: ""  # Path to certificate file
+      key_file: ""   # Path to private key file
+
+# Logging configuration
+logging:
+  level: "info"     # debug, info, warn, error
+  format: "json"    # json, text
+  output: "stdout"  # stdout, stderr, or file path
+
+# Tools-specific configuration
+tools:
+  # Precision settings for mathematical operations
+  precision:
+    max_decimal_places: 15      # Maximum precision (0-15)
+    default_decimal_places: 2   # Default precision for results
+  
+  # Expression evaluation settings
+  expression_eval:
+    timeout: "10s"        # Maximum time for expression evaluation
+    max_variables: 100    # Maximum number of variables in expression
+  
+  # Statistics settings
+  statistics:
+    max_data_points: 10000  # Maximum number of data points in dataset
+  
+  # Financial calculations settings
+  financial:
+    currency_default: "USD"   # Default currency code
+
+# Security configuration
+security:
+  # Rate limiting (for HTTP transport)
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100  # Maximum requests per minute per IP
+  
+  # Request size limits
+  request_size_limit: "1MB"   # Maximum request body size
+
+# Environment-specific configurations
+# Development configuration example:
+# server:
+#   transport: "http"
+#   http:
+#     port: 8080
+#     cors:
+#       enabled: true
+#       origins: ["http://localhost:3000", "http://localhost:8080"]
+# logging:
+#   level: "debug"
+#   format: "text"
+
+# Production configuration example:
+# server:
+#   transport: "http"
+#   http:
+#     port: 8080
+#     cors:
+#       enabled: true
+#       origins: ["https://your-production-domain.com"]
+#     tls:
+#       enabled: true
+#       cert_file: "/path/to/cert.pem"
+#       key_file: "/path/to/key.pem"
+# logging:
+#   level: "info"
+#   format: "json"
+#   output: "/var/log/calculator-server.log"
+# security:
+#   rate_limiting:
+#     requests_per_minute: 1000

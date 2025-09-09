@@ -223,6 +223,105 @@ go build -o calculator-server ./cmd/server
 }
 ```
 
+## 🌐 HTTP Transport
+
+The server supports HTTP transport for web-based integrations and REST-style access.
+
+### HTTP Endpoints
+
+#### Main MCP Endpoint
+- **POST /mcp** - Main MCP JSON-RPC endpoint
+- Content-Type: `application/json`
+- Accepts standard MCP JSON-RPC requests
+
+```bash
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "basic_math",
+      "arguments": {
+        "operation": "add",
+        "operands": [15, 25],
+        "precision": 2
+      }
+    }
+  }'
+```
+
+#### Convenience Endpoints
+- **GET /health** - Health check endpoint
+- **GET /tools** - List available tools
+- **GET /metrics** - Basic server metrics
+
+```bash
+# Health check
+curl http://localhost:8080/health
+
+# List tools
+curl http://localhost:8080/tools
+
+# Server metrics
+curl http://localhost:8080/metrics
+```
+
+#### Example HTTP Usage
+
+```bash
+# Start HTTP server
+./calculator-server -transport=http -port=8080
+
+# Basic math calculation
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"basic_math","arguments":{"operation":"multiply","operands":[7,8],"precision":2}}}'
+
+# Expression evaluation
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"expression_eval","arguments":{"expression":"sqrt(x^2 + y^2)","variables":{"x":3,"y":4}}}}'
+
+# Statistical analysis
+curl -X POST http://localhost:8080/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"statistics","arguments":{"data":[1,2,3,4,5],"operation":"mean"}}}'
+```
+
+### CORS Support
+
+The server includes full CORS support for web applications:
+
+```yaml
+server:
+  http:
+    cors:
+      enabled: true
+      origins: 
+        - "https://your-frontend.com"
+        - "http://localhost:3000"  # Development
+```
+
+### TLS/HTTPS Support
+
+Enable HTTPS with TLS certificates:
+
+```yaml
+server:
+  http:
+    tls:
+      enabled: true
+      cert_file: "/path/to/certificate.pem"
+      key_file: "/path/to/private_key.pem"
+```
+
+Or via command line:
+```bash
+./calculator-server -transport=http -config=tls-config.yaml
+```
+
 ## 🏗️ Project Structure
 
 ```
@@ -380,13 +479,88 @@ Options:
         Transport method (stdio, http) (default "stdio")
   -port int
         Port for HTTP transport (default 8080)
+  -host string
+        Host for HTTP transport (default "0.0.0.0")
+  -config string
+        Path to configuration file (YAML or JSON)
+
+Examples:
+  ./calculator-server                           # Run with stdio transport (default)
+  ./calculator-server -transport=http          # Run with HTTP transport on port 8080
+  ./calculator-server -transport=http -port=9000 -host=localhost  # Custom host/port
+  ./calculator-server -config=config.yaml     # Load configuration from file
+  ./calculator-server -config=config.yaml -transport=http  # Override config with CLI flags
 ```
+
+### Configuration Files
+
+The server supports configuration files in YAML and JSON formats. Configuration files are searched in the following locations:
+
+1. Current directory (`./config.yaml`, `./config.json`)
+2. `./config/` directory
+3. `/etc/calculator-server/`
+4. `$HOME/.calculator-server/`
+
+#### Sample YAML Configuration
+
+```yaml
+server:
+  transport: "http"
+  http:
+    host: "0.0.0.0"
+    port: 8080
+    cors:
+      enabled: true
+      origins: ["*"]
+    timeout:
+      read: "30s"
+      write: "30s"
+      idle: "120s"
+    tls:
+      enabled: false
+      cert_file: ""
+      key_file: ""
+
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+tools:
+  precision:
+    max_decimal_places: 15
+    default_decimal_places: 2
+  expression_eval:
+    timeout: "10s"
+    max_variables: 100
+  statistics:
+    max_data_points: 10000
+  financial:
+    currency_default: "USD"
+
+security:
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+  request_size_limit: "1MB"
+```
+
+See `config.sample.yaml` and `config.sample.json` for complete configuration examples.
 
 ### Environment Variables
 
+Environment variables override configuration file settings:
+
+- `CALCULATOR_TRANSPORT`: Transport method (stdio, http)
+- `CALCULATOR_HTTP_HOST`: HTTP server host
+- `CALCULATOR_HTTP_PORT`: HTTP server port
 - `CALCULATOR_LOG_LEVEL`: Set logging level (debug, info, warn, error)
-- `CALCULATOR_MAX_PRECISION`: Override maximum precision limit
-- `CALCULATOR_TIMEOUT`: Set operation timeout in seconds
+- `CALCULATOR_LOG_FORMAT`: Log format (json, text)
+- `CALCULATOR_LOG_OUTPUT`: Log output (stdout, stderr, file path)
+- `CALCULATOR_MAX_PRECISION`: Override maximum precision limit (0-15)
+- `CALCULATOR_DEFAULT_PRECISION`: Default precision for results
+- `CALCULATOR_RATE_LIMIT_ENABLED`: Enable rate limiting (true, false)
+- `CALCULATOR_REQUESTS_PER_MINUTE`: Requests per minute limit
 
 ## 📈 Performance
 
@@ -685,10 +859,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🗺️ Roadmap
 
-### Version 1.1
-- [ ] HTTP transport support
+### Version 1.1 ✅ Completed
+- [x] HTTP transport support
+- [x] Configuration file support (YAML/JSON)
+- [x] TLS/HTTPS support
+- [x] CORS configuration
+- [x] Environment variable overrides
 - [ ] WebSocket transport support
-- [ ] Configuration file support
 - [ ] Advanced statistical functions
 
 ### Version 1.2

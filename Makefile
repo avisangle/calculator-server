@@ -255,4 +255,28 @@ example-stats: build ## Run statistics example
 	@echo "$(BLUE)Running statistics example...$(NC)"
 	@echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"statistics","arguments":{"data":[1,2,3,4,5,6,7,8,9,10],"operation":"mean"}}}' | $(BUILD_DIR)/$(BINARY_NAME) -transport=stdio
 
+example-http: build ## Run HTTP server example
+	@echo "$(BLUE)Starting HTTP server example...$(NC)"
+	@echo "Server will start on http://localhost:8080"
+	@echo "Test with: curl -X POST http://localhost:8080/mcp -H 'Content-Type: application/json' -d '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}'"
+	@echo "Health check: curl http://localhost:8080/health"
+	@echo "Press Ctrl+C to stop the server"
+	@$(BUILD_DIR)/$(BINARY_NAME) -transport=http -port=8080
+
+example-http-config: build ## Run HTTP server with config file
+	@echo "$(BLUE)Starting HTTP server with config file...$(NC)"
+	@echo "Using config.sample.yaml configuration"
+	@echo "Server will start on configured host:port"
+	@echo "Press Ctrl+C to stop the server"
+	@$(BUILD_DIR)/$(BINARY_NAME) -config=config.sample.yaml -transport=http
+
+test-config: ## Test configuration file loading
+	@echo "$(BLUE)Testing configuration file loading...$(NC)"
+	@if [ -f config.sample.yaml ]; then \
+		echo "YAML config found, testing..."; \
+		go run $(MAIN_PATH) -config=config.sample.yaml -transport=stdio < /dev/null || echo "Config test completed"; \
+	else \
+		echo "$(YELLOW)config.sample.yaml not found$(NC)"; \
+	fi
+
 .DEFAULT_GOAL := help

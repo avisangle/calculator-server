@@ -12,19 +12,49 @@ This project implements 6+ mathematical tools with advanced features and high pr
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 	
+	"calculator-server/internal/config"
 	"calculator-server/internal/handlers"
 	"calculator-server/pkg/mcp"
 )
 
 func main() {
 	// Parse command line flags
-	transport := flag.String("transport", "stdio", "Transport method (stdio, http)")
-	_ = flag.Int("port", 8080, "Port for HTTP transport") // Reserved for future use
+	transport := flag.String("transport", "", "Transport method (stdio, http)")
+	port := flag.Int("port", 0, "Port for HTTP transport")
+	host := flag.String("host", "", "Host for HTTP transport")
+	configPath := flag.String("config", "", "Path to configuration file")
 	flag.Parse()
+
+	// Load configuration
+	loader := config.NewLoader()
+	cfg, err := loader.Load(*configPath)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// Override configuration with command line flags
+	if *transport != "" {
+		cfg.Server.Transport = *transport
+	}
+	if *host != "" {
+		cfg.Server.HTTP.Host = *host
+	}
+	if *port != 0 {
+		cfg.Server.HTTP.Port = *port
+	}
+
+	// Validate final configuration
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Configuration validation failed: %v", err)
+	}
 
 	// Create MCP server
 	server := mcp.NewServer()
@@ -38,17 +68,77 @@ func main() {
 	registerTools(server, mathHandler, statsHandler, financeHandler)
 
 	// Start server based on transport
-	switch *transport {
+	switch cfg.Server.Transport {
 	case "stdio":
 		log.Println("Starting calculator server with stdio transport...")
 		if err := server.Run(); err != nil {
 			log.Fatalf("Server error: %v", err)
 		}
 	case "http":
-		log.Printf("HTTP transport not implemented yet. Use stdio transport.")
-		os.Exit(1)
+		startHTTPServerWithConfig(server, cfg)
 	default:
-		log.Fatalf("Unknown transport: %s", *transport)
+		log.Fatalf("Unknown transport: %s", cfg.Server.Transport)
+	}
+}
+
+func startHTTPServerWithConfig(server *mcp.Server, cfg *config.Config) {
+	// Configure HTTP transport from config
+	httpConfig := &mcp.HTTPConfig{
+		Host:         cfg.Server.HTTP.Host,
+		Port:         cfg.Server.HTTP.Port,
+		CORSEnabled:  cfg.Server.HTTP.CORS.Enabled,
+		CORSOrigins:  cfg.Server.HTTP.CORS.Origins,
+		ReadTimeout:  cfg.Server.HTTP.Timeout.Read,
+		WriteTimeout: cfg.Server.HTTP.Timeout.Write,
+		IdleTimeout:  cfg.Server.HTTP.Timeout.Idle,
+	}
+
+	// Create HTTP transport
+	httpTransport := mcp.NewHTTPTransport(server, httpConfig)
+
+	// Setup graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Channel to listen for interrupt signals
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	go func() {
+		log.Printf("Starting calculator server with HTTP transport on %s:%d...", 
+			cfg.Server.HTTP.Host, cfg.Server.HTTP.Port)
+		
+		var err error
+		if cfg.Server.HTTP.TLS.Enabled {
+			err = httpTransport.StartTLS(cfg.Server.HTTP.TLS.CertFile, cfg.Server.HTTP.TLS.KeyFile)
+		} else {
+			err = httpTransport.Start()
+		}
+		
+		if err != nil {
+			log.Printf("HTTP server error: %v", err)
+			cancel()
+		}
+	}()
+
+	// Wait for shutdown signal
+	select {
+	case <-c:
+		log.Println("Received shutdown signal...")
+	case <-ctx.Done():
+		log.Println("Server context cancelled...")
+	}
+
+	// Create a timeout context for shutdown
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	// Graceful shutdown
+	if err := httpTransport.Stop(shutdownCtx); err != nil {
+		log.Printf("Error during shutdown: %v", err)
+	} else {
+		log.Println("Server shut down gracefully")
 	}
 }
 
