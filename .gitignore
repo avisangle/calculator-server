@@ -56,3 +56,6 @@ coverage.out
 
 # Claude Code settings
 .claude/
+# Build artifacts
+calculator-server
+server
