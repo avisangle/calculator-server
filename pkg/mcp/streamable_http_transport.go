@@ -27,23 +27,23 @@ import (
 // - CORS support with origin validation
 // - Graceful shutdown capabilities
 type StreamableHTTPTransport struct {
-	server      *http.Server           // HTTP server instance
-	mcpServer   *Server                // Reference to the MCP server
-	config      *StreamableHTTPConfig  // Transport configuration
+	server      *http.Server              // HTTP server instance
+	mcpServer   *Server                   // Reference to the MCP server
+	config      *StreamableHTTPConfig     // Transport configuration
 	sessions    map[string]*types.Session // Active session storage
-	sessionsMux sync.RWMutex           // Mutex for thread-safe session access
-	connections int32                  // Current connection count (unused but reserved for future use)
+	sessionsMux sync.RWMutex              // Mutex for thread-safe session access
+	connections int32                     // Current connection count (unused but reserved for future use)
 }
 
 // StreamableHTTPConfig contains MCP-compliant HTTP transport configuration
 // All settings follow MCP specification requirements for streamable HTTP transport
 type StreamableHTTPConfig struct {
-	Host             string        // Server host (defaults to 127.0.0.1 for security)
-	Port             int           // Server port (e.g., 8080)
-	SessionTimeout   time.Duration // How long sessions remain active without activity
-	MaxConnections   int           // Maximum concurrent connections allowed
-	CORSEnabled      bool          // Whether to enable CORS headers
-	CORSOrigins      []string      // Allowed origins for CORS requests
+	Host           string        // Server host (defaults to 127.0.0.1 for security)
+	Port           int           // Server port (e.g., 8080)
+	SessionTimeout time.Duration // How long sessions remain active without activity
+	MaxConnections int           // Maximum concurrent connections allowed
+	CORSEnabled    bool          // Whether to enable CORS headers
+	CORSOrigins    []string      // Allowed origins for CORS requests
 }
 
 // NewStreamableHTTPTransport creates a new MCP-compliant HTTP transport instance
@@ -55,13 +55,18 @@ func NewStreamableHTTPTransport(mcpServer *Server, config *StreamableHTTPConfig)
 	// Apply secure defaults if no config provided
 	if config == nil {
 		config = &StreamableHTTPConfig{
-			Host:             "127.0.0.1",        // Localhost for security (MCP recommendation)
-			Port:             8080,               // Default HTTP port
-			SessionTimeout:   5 * time.Minute,   // 5 minute session timeout
-			MaxConnections:   100,               // Reasonable connection limit
-			CORSEnabled:      true,              // Enable CORS for web clients
-			CORSOrigins:      []string{"*"},     // Allow all origins (configure for production)
+			Host:           "127.0.0.1",                                                // Localhost for security (MCP recommendation)
+			Port:           8080,                                                       // Default HTTP port
+			SessionTimeout: 5 * time.Minute,                                            // 5 minute session timeout
+			MaxConnections: 100,                                                        // Reasonable connection limit
+			CORSEnabled:    true,                                                       // Enable CORS for web clients
+			CORSOrigins:    []string{"http://localhost:3000", "http://127.0.0.1:3000"}, // Restrictive defaults for development
 		}
+	}
+
+	// Apply additional secure defaults for CORS if not explicitly set
+	if config.CORSEnabled && len(config.CORSOrigins) == 0 {
+		config.CORSOrigins = []string{"http://localhost:3000", "http://127.0.0.1:3000"}
 	}
 
 	// Initialize the transport with thread-safe session storage
@@ -262,7 +267,7 @@ func (t *StreamableHTTPTransport) writeSSEResponse(w http.ResponseWriter, respon
 	// Write SSE event
 	eventID := t.generateEventID()
 	responseJSON, _ := json.Marshal(response)
-	
+
 	fmt.Fprintf(w, "id: %s\n", eventID)
 	fmt.Fprintf(w, "event: message\n")
 	fmt.Fprintf(w, "data: %s\n\n", responseJSON)
@@ -311,18 +316,18 @@ func (t *StreamableHTTPTransport) setupSSEStream(w http.ResponseWriter, r *http.
 // Maps JSON-RPC error codes to appropriate HTTP status codes per MCP specification
 func (t *StreamableHTTPTransport) writeJSONResponse(w http.ResponseWriter, response types.MCPResponse) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Determine HTTP status code based on JSON-RPC error codes
 	statusCode := http.StatusOK
 	if response.Error != nil {
 		switch response.Error.Code {
-		case ErrorCodeInvalidRequest:  // -32600
+		case ErrorCodeInvalidRequest: // -32600
 			statusCode = http.StatusBadRequest
-		case ErrorCodeMethodNotFound:  // -32601
+		case ErrorCodeMethodNotFound: // -32601
 			statusCode = http.StatusNotFound
-		case ErrorCodeInvalidParams:   // -32602
+		case ErrorCodeInvalidParams: // -32602
 			statusCode = http.StatusBadRequest
-		case ErrorCodeInternalError:   // -32603
+		case ErrorCodeInternalError: // -32603
 			statusCode = http.StatusInternalServerError
 		default:
 			// Unknown error codes default to internal server error
@@ -339,12 +344,12 @@ func (t *StreamableHTTPTransport) writeJSONResponse(w http.ResponseWriter, respo
 func (t *StreamableHTTPTransport) writeErrorResponse(w http.ResponseWriter, id interface{}, code int, message, data string) {
 	// Create a proper JSON-RPC 2.0 error response
 	response := types.MCPResponse{
-		JSONRPC: "2.0",           // Required JSON-RPC version
-		ID:      id,              // Request ID (may be nil for parse errors)
+		JSONRPC: "2.0", // Required JSON-RPC version
+		ID:      id,    // Request ID (may be nil for parse errors)
 		Error: &types.MCPError{
-			Code:    code,        // Standard JSON-RPC error codes
-			Message: message,     // Human-readable error message
-			Data:    data,        // Additional error details
+			Code:    code,    // Standard JSON-RPC error codes
+			Message: message, // Human-readable error message
+			Data:    data,    // Additional error details
 		},
 	}
 	t.writeJSONResponse(w, response)
@@ -373,8 +378,8 @@ func (t *StreamableHTTPTransport) createSession() string {
 	t.sessions[sessionID] = &types.Session{
 		ID:        sessionID,
 		CreatedAt: time.Now(),
-		LastSeen:  time.Now(),  // Initialize activity timestamp
-		Active:    true,        // Mark session as active
+		LastSeen:  time.Now(), // Initialize activity timestamp
+		Active:    true,       // Mark session as active
 	}
 
 	return sessionID
@@ -424,7 +429,7 @@ func (t *StreamableHTTPTransport) cleanupExpiredSessions() {
 		// Use write lock since we'll be modifying the sessions map
 		t.sessionsMux.Lock()
 		now := time.Now()
-		
+
 		// Check each session for expiration
 		for id, session := range t.sessions {
 			// If session hasn't been active within timeout period, remove it

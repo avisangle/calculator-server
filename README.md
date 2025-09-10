@@ -314,15 +314,74 @@ server:
     max_connections: 100
     cors:
       enabled: true
-      origins: ["*"]  # Configure appropriately for production
+      origins: ["http://localhost:3000", "http://127.0.0.1:3000"]  # Secure defaults
 ```
 
 ### Security Features
 
-- **Origin Validation**: CORS origin checking
+- **Origin Validation**: CORS origin checking with configurable allowlist
 - **Session Security**: Cryptographically secure session IDs
 - **Local Binding**: Default to localhost for security
 - **Protocol Enforcement**: Strict MCP protocol compliance
+
+### CORS Security Configuration
+
+The server implements robust CORS (Cross-Origin Resource Sharing) security controls to prevent unauthorized access from web browsers.
+
+#### ⚠️ Security Best Practices
+
+**Development Configuration:**
+```yaml
+server:
+  http:
+    cors:
+      enabled: true
+      origins:
+        - "http://localhost:3000"
+        - "http://127.0.0.1:3000"
+        # Add other development origins as needed
+```
+
+**Production Configuration:**
+```yaml
+server:
+  http:
+    cors:
+      enabled: true
+      origins:
+        - "https://your-production-domain.com"
+        - "https://api.your-company.com"
+        # NEVER use "*" in production
+```
+
+**Security Notes:**
+- ⛔ **NEVER use `"*"` in production** - allows ANY origin to access your server
+- ✅ **Always specify exact origins** - use complete URLs with protocol and port
+- ✅ **Use HTTPS in production** - ensures encrypted communication
+- ✅ **Minimize origin list** - only include necessary domains
+- ✅ **Regular security audits** - review and update origin list periodically
+
+#### CORS Headers Applied
+
+When CORS is enabled, the server automatically adds these security headers:
+- `Access-Control-Allow-Origin`: Validates request origin against configured list
+- `Access-Control-Allow-Methods`: `GET, POST, OPTIONS`
+- `Access-Control-Allow-Headers`: `Content-Type, Accept, MCP-Protocol-Version, Mcp-Session-Id`
+- `Access-Control-Max-Age`: `86400` (24 hours cache for preflight requests)
+
+#### Testing CORS Configuration
+
+```bash
+# Test allowed origin (should succeed)
+curl -H "Origin: http://localhost:3000" \
+     -H "Access-Control-Request-Method: POST" \
+     -X OPTIONS http://localhost:8080/mcp
+
+# Test blocked origin (should fail)
+curl -H "Origin: https://malicious-site.com" \
+     -H "Access-Control-Request-Method: POST" \
+     -X OPTIONS http://localhost:8080/mcp
+```
 
 ## 🏗️ Project Structure
 
@@ -509,11 +568,11 @@ The server supports configuration files in YAML and JSON formats. Configuration 
 server:
   transport: "http"
   http:
-    host: "0.0.0.0"
+    host: "127.0.0.1"  # Localhost for security
     port: 8080
     cors:
       enabled: true
-      origins: ["*"]
+      origins: ["http://localhost:3000", "http://127.0.0.1:3000"]  # Never use "*" in production
     timeout:
       read: "30s"
       write: "30s"
