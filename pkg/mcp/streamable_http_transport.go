@@ -266,7 +266,17 @@ func (t *StreamableHTTPTransport) writeSSEResponse(w http.ResponseWriter, respon
 
 	// Write SSE event
 	eventID := t.generateEventID()
-	responseJSON, _ := json.Marshal(response)
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		log.Printf("Failed to marshal response for session %s, event %s: %v", sessionID, eventID, err)
+		// Send error response to client
+		errorResponse := fmt.Sprintf(`{"jsonrpc":"2.0","id":%v,"error":{"code":-32603,"message":"Internal error: failed to serialize response"}}`, response.ID)
+		fmt.Fprintf(w, "id: %s\n", eventID)
+		fmt.Fprintf(w, "event: error\n")
+		fmt.Fprintf(w, "data: %s\n\n", errorResponse)
+		flusher.Flush()
+		return
+	}
 
 	fmt.Fprintf(w, "id: %s\n", eventID)
 	fmt.Fprintf(w, "event: message\n")

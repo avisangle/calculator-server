@@ -164,7 +164,7 @@ func registerTools(server *mcp.Server, mathHandler *handlers.MathHandler, statsH
 		"unit_conversion",
 		"Convert between different units of measurement",
 		getUnitConversionSchema(),
-		statsHandler.HandleUnitConversion,
+		mathHandler.HandleUnitConversion,
 	)
 
 	// Financial Calculations
@@ -278,7 +278,11 @@ func getAdvancedMathSchema() map[string]interface{} {
 			},
 			"value": map[string]interface{}{
 				"type":        "number",
-				"description": "The input value for the function",
+				"description": "The input value for the function (base for pow function)",
+			},
+			"exponent": map[string]interface{}{
+				"type":        "number",
+				"description": "The exponent for pow function (required for pow, ignored for other functions)",
 			},
 			"unit": map[string]interface{}{
 				"type":        "string",

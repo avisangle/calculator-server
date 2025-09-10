@@ -93,9 +93,13 @@ func (ac *AdvancedCalculator) Calculate(req types.AdvancedMathRequest) (types.Ca
 		}
 		result = math.Exp(value)
 	case "pow":
-		// For power function, we need a second parameter
-		// This is a simplified implementation assuming power of 2
-		result = math.Pow(value, 2)
+		// For power function, we use the existing Power method
+		exponent := req.Exponent
+		var err error
+		result, err = ac.Power(value, exponent)
+		if err != nil {
+			return types.CalculationResult{}, err
+		}
 	default:
 		return types.CalculationResult{}, fmt.Errorf("unsupported function: %s", req.Function)
 	}
