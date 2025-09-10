@@ -3,7 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	
+
 	"calculator-server/internal/calculator"
 	"calculator-server/internal/types"
 )
@@ -108,9 +108,9 @@ func (mh *MathHandler) HandleExpressionEval(params map[string]interface{}) (inte
 
 	// Add additional information
 	response := map[string]interface{}{
-		"result":       result.Result,
-		"expression":   req.Expression,
-		"variables":    req.Variables,
+		"result":              result.Result,
+		"expression":          req.Expression,
+		"variables":           req.Variables,
 		"supported_functions": mh.exprCalc.GetSupportedFunctions(),
 		"supported_operators": mh.exprCalc.GetSupportedOperators(),
 	}
@@ -139,36 +139,36 @@ func (mh *MathHandler) GetSupportedUnits() []string {
 
 func (mh *MathHandler) HandleBasicMathBatch(operations []map[string]interface{}) ([]interface{}, error) {
 	results := make([]interface{}, len(operations))
-	
+
 	for i, operation := range operations {
 		result, err := mh.HandleBasicMath(operation)
 		if err != nil {
 			results[i] = map[string]interface{}{
-				"error": err.Error(),
+				"error":           err.Error(),
 				"operation_index": i,
 			}
 		} else {
 			results[i] = result
 		}
 	}
-	
+
 	return results, nil
 }
 
 func (mh *MathHandler) HandleAdvancedMathBatch(operations []map[string]interface{}) ([]interface{}, error) {
 	results := make([]interface{}, len(operations))
-	
+
 	for i, operation := range operations {
 		result, err := mh.HandleAdvancedMath(operation)
 		if err != nil {
 			results[i] = map[string]interface{}{
-				"error": err.Error(),
+				"error":           err.Error(),
 				"operation_index": i,
 			}
 		} else {
 			results[i] = result
 		}
 	}
-	
+
 	return results, nil
 }

@@ -3,13 +3,13 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	
+
 	"calculator-server/internal/calculator"
 	"calculator-server/internal/types"
 )
 
 type StatsHandler struct {
-	statsCalc    *calculator.StatisticsCalculator
+	statsCalc     *calculator.StatisticsCalculator
 	unitConverter *calculator.UnitConverter
 }
 
@@ -211,10 +211,10 @@ func (sh *StatsHandler) HandlePercentileCalculation(params map[string]interface{
 	}
 
 	response := map[string]interface{}{
-		"percentile":       percentile,
-		"value":            result,
-		"data_count":       len(data),
-		"data_preview":     sh.getDataPreview(data),
+		"percentile":   percentile,
+		"value":        result,
+		"data_count":   len(data),
+		"data_preview": sh.getDataPreview(data),
 	}
 
 	return response, nil
@@ -257,12 +257,12 @@ func (sh *StatsHandler) HandleMultipleConversions(params map[string]interface{})
 	}
 
 	response := map[string]interface{}{
-		"original_values": values,
+		"original_values":  values,
 		"converted_values": results,
-		"fromUnit": fromUnit,
-		"toUnit": toUnit,
-		"category": category,
-		"count": len(values),
+		"fromUnit":         fromUnit,
+		"toUnit":           toUnit,
+		"category":         category,
+		"count":            len(values),
 	}
 
 	return response, nil
@@ -291,10 +291,10 @@ func (sh *StatsHandler) convertToFloatSlice(data interface{}) ([]float64, error)
 
 func (sh *StatsHandler) getDataPreview(data []float64) map[string]interface{} {
 	preview := make(map[string]interface{})
-	
+
 	count := len(data)
 	preview["count"] = count
-	
+
 	if count == 0 {
 		return preview
 	}

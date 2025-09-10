@@ -1,17 +1,13 @@
 /*
-Calculator Server - Go MCP Server
-A comprehensive Go-based MCP (Model Context Protocol) server for mathematical computations
-
-Author: Avinash Sangle
-Email: avinash.sangle123@gmail.com
-GitHub: https://github.com/avisangle
-Website: https://avisangle.github.io/
-
-This project implements 6+ mathematical tools with advanced features and high precision calculations.
+Copyright 2025
+SPDX-License-Identifier: Apache-2.0
 */
 package main
 
 import (
+	"calculator-server/internal/config"
+	"calculator-server/internal/handlers"
+	"calculator-server/pkg/mcp"
 	"context"
 	"flag"
 	"log"
@@ -19,10 +15,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	
-	"calculator-server/internal/config"
-	"calculator-server/internal/handlers"
-	"calculator-server/pkg/mcp"
 )
 
 func main() {
@@ -84,12 +76,12 @@ func main() {
 func startHTTPServerWithConfig(server *mcp.Server, cfg *config.Config) {
 	// Configure MCP-compliant streamable HTTP transport from config
 	httpConfig := &mcp.StreamableHTTPConfig{
-		Host:             cfg.Server.HTTP.Host,
-		Port:             cfg.Server.HTTP.Port,
-		SessionTimeout:   cfg.Server.HTTP.SessionTimeout,
-		MaxConnections:   cfg.Server.HTTP.MaxConnections,
-		CORSEnabled:      cfg.Server.HTTP.CORS.Enabled,
-		CORSOrigins:      cfg.Server.HTTP.CORS.Origins,
+		Host:           cfg.Server.HTTP.Host,
+		Port:           cfg.Server.HTTP.Port,
+		SessionTimeout: cfg.Server.HTTP.SessionTimeout,
+		MaxConnections: cfg.Server.HTTP.MaxConnections,
+		CORSEnabled:    cfg.Server.HTTP.CORS.Enabled,
+		CORSOrigins:    cfg.Server.HTTP.CORS.Origins,
 	}
 
 	// Create MCP-compliant streamable HTTP transport
@@ -105,9 +97,9 @@ func startHTTPServerWithConfig(server *mcp.Server, cfg *config.Config) {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting calculator server with MCP streamable HTTP transport on %s:%d...", 
+		log.Printf("Starting calculator server with MCP streamable HTTP transport on %s:%d...",
 			cfg.Server.HTTP.Host, cfg.Server.HTTP.Port)
-		
+
 		if err := httpTransport.Start(); err != nil {
 			log.Printf("HTTP server error: %v", err)
 			cancel()
@@ -251,8 +243,8 @@ func getBasicMathSchema() map[string]interface{} {
 		"type": "object",
 		"properties": map[string]interface{}{
 			"operation": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"add", "subtract", "multiply", "divide"},
+				"type":        "string",
+				"enum":        []string{"add", "subtract", "multiply", "divide"},
 				"description": "The mathematical operation to perform",
 			},
 			"operands": map[string]interface{}{
@@ -260,14 +252,14 @@ func getBasicMathSchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 2,
+				"minItems":    2,
 				"description": "Array of numbers to operate on",
 			},
 			"precision": map[string]interface{}{
-				"type": "integer",
-				"minimum": 0,
-				"maximum": 15,
-				"default": 2,
+				"type":        "integer",
+				"minimum":     0,
+				"maximum":     15,
+				"default":     2,
 				"description": "Number of decimal places in result",
 			},
 		},
@@ -280,18 +272,18 @@ func getAdvancedMathSchema() map[string]interface{} {
 		"type": "object",
 		"properties": map[string]interface{}{
 			"function": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"sin", "cos", "tan", "asin", "acos", "atan", "log", "log10", "ln", "sqrt", "abs", "factorial", "pow", "exp"},
+				"type":        "string",
+				"enum":        []string{"sin", "cos", "tan", "asin", "acos", "atan", "log", "log10", "ln", "sqrt", "abs", "factorial", "pow", "exp"},
 				"description": "The mathematical function to apply",
 			},
 			"value": map[string]interface{}{
-				"type": "number",
+				"type":        "number",
 				"description": "The input value for the function",
 			},
 			"unit": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"radians", "degrees"},
-				"default": "radians",
+				"type":        "string",
+				"enum":        []string{"radians", "degrees"},
+				"default":     "radians",
 				"description": "Unit for trigonometric functions",
 			},
 		},
@@ -304,11 +296,11 @@ func getExpressionEvalSchema() map[string]interface{} {
 		"type": "object",
 		"properties": map[string]interface{}{
 			"expression": map[string]interface{}{
-				"type": "string",
+				"type":        "string",
 				"description": "Mathematical expression to evaluate",
 			},
 			"variables": map[string]interface{}{
-				"type": "object",
+				"type":        "object",
 				"description": "Variables to substitute in the expression",
 				"patternProperties": map[string]interface{}{
 					"^[a-zA-Z][a-zA-Z0-9_]*$": map[string]interface{}{
@@ -330,12 +322,12 @@ func getStatisticsSchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of numerical data",
 			},
 			"operation": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"mean", "median", "mode", "std_dev", "variance", "percentile"},
+				"type":        "string",
+				"enum":        []string{"mean", "median", "mode", "std_dev", "variance", "percentile"},
 				"description": "Statistical operation to perform",
 			},
 		},
@@ -348,20 +340,20 @@ func getUnitConversionSchema() map[string]interface{} {
 		"type": "object",
 		"properties": map[string]interface{}{
 			"value": map[string]interface{}{
-				"type": "number",
+				"type":        "number",
 				"description": "Value to convert",
 			},
 			"fromUnit": map[string]interface{}{
-				"type": "string",
+				"type":        "string",
 				"description": "Source unit",
 			},
 			"toUnit": map[string]interface{}{
-				"type": "string",
+				"type":        "string",
 				"description": "Target unit",
 			},
 			"category": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"length", "weight", "temperature", "volume", "area"},
+				"type":        "string",
+				"enum":        []string{"length", "weight", "temperature", "volume", "area"},
 				"description": "Category of measurement",
 			},
 		},
@@ -374,33 +366,33 @@ func getFinancialSchema() map[string]interface{} {
 		"type": "object",
 		"properties": map[string]interface{}{
 			"operation": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"compound_interest", "simple_interest", "loan_payment", "roi", "present_value", "future_value"},
+				"type":        "string",
+				"enum":        []string{"compound_interest", "simple_interest", "loan_payment", "roi", "present_value", "future_value"},
 				"description": "Financial operation to perform",
 			},
 			"principal": map[string]interface{}{
-				"type": "number",
-				"minimum": 0,
+				"type":        "number",
+				"minimum":     0,
 				"description": "Principal amount or initial investment",
 			},
 			"rate": map[string]interface{}{
-				"type": "number",
-				"minimum": 0,
+				"type":        "number",
+				"minimum":     0,
 				"description": "Interest rate (as percentage)",
 			},
 			"time": map[string]interface{}{
-				"type": "number",
-				"minimum": 0,
+				"type":        "number",
+				"minimum":     0,
 				"description": "Time period in years",
 			},
 			"periods": map[string]interface{}{
-				"type": "integer",
-				"minimum": 1,
+				"type":        "integer",
+				"minimum":     1,
 				"description": "Number of compounding periods per year",
 			},
 			"futureValue": map[string]interface{}{
-				"type": "number",
-				"minimum": 0,
+				"type":        "number",
+				"minimum":     0,
 				"description": "Future value (for ROI and present value calculations)",
 			},
 		},
@@ -418,7 +410,7 @@ func getStatsSummarySchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of numerical data for summary statistics",
 			},
 		},
@@ -435,13 +427,13 @@ func getPercentileSchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of numerical data",
 			},
 			"percentile": map[string]interface{}{
-				"type": "number",
-				"minimum": 0,
-				"maximum": 100,
+				"type":        "number",
+				"minimum":     0,
+				"maximum":     100,
 				"description": "Percentile to calculate (0-100)",
 			},
 		},
@@ -458,20 +450,20 @@ func getBatchConversionSchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of values to convert",
 			},
 			"fromUnit": map[string]interface{}{
-				"type": "string",
+				"type":        "string",
 				"description": "Source unit",
 			},
 			"toUnit": map[string]interface{}{
-				"type": "string",
+				"type":        "string",
 				"description": "Target unit",
 			},
 			"category": map[string]interface{}{
-				"type": "string",
-				"enum": []string{"length", "weight", "temperature", "volume", "area"},
+				"type":        "string",
+				"enum":        []string{"length", "weight", "temperature", "volume", "area"},
 				"description": "Category of measurement",
 			},
 		},
@@ -488,12 +480,12 @@ func getNPVSchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of cash flows (negative for outflows, positive for inflows)",
 			},
 			"discountRate": map[string]interface{}{
-				"type": "number",
-				"minimum": 0,
+				"type":        "number",
+				"minimum":     0,
 				"description": "Discount rate as percentage",
 			},
 		},
@@ -510,7 +502,7 @@ func getIRRSchema() map[string]interface{} {
 				"items": map[string]interface{}{
 					"type": "number",
 				},
-				"minItems": 2,
+				"minItems":    2,
 				"description": "Array of cash flows (negative for outflows, positive for inflows)",
 			},
 		},
@@ -528,21 +520,21 @@ func getLoanComparisonSchema() map[string]interface{} {
 					"type": "object",
 					"properties": map[string]interface{}{
 						"principal": map[string]interface{}{
-							"type": "number",
+							"type":    "number",
 							"minimum": 0,
 						},
 						"rate": map[string]interface{}{
-							"type": "number",
+							"type":    "number",
 							"minimum": 0,
 						},
 						"time": map[string]interface{}{
-							"type": "number",
+							"type":    "number",
 							"minimum": 0,
 						},
 					},
 					"required": []string{"principal", "rate", "time"},
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of loan scenarios to compare",
 			},
 		},
@@ -560,21 +552,21 @@ func getInvestmentScenariosSchema() map[string]interface{} {
 					"type": "object",
 					"properties": map[string]interface{}{
 						"principal": map[string]interface{}{
-							"type": "number",
+							"type":    "number",
 							"minimum": 0,
 						},
 						"rate": map[string]interface{}{
-							"type": "number",
+							"type":    "number",
 							"minimum": 0,
 						},
 						"time": map[string]interface{}{
-							"type": "number",
+							"type":    "number",
 							"minimum": 0,
 						},
 					},
 					"required": []string{"principal", "rate", "time"},
 				},
-				"minItems": 1,
+				"minItems":    1,
 				"description": "Array of investment scenarios to compare",
 			},
 		},

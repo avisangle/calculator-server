@@ -142,7 +142,6 @@ func (s *Server) HandleRequest(req types.MCPRequest) types.MCPResponse {
 	return response
 }
 
-
 // Run starts the stdio transport (maintained for backward compatibility)
 func (s *Server) Run() error {
 	transport := NewStdioTransport(s)
@@ -152,7 +151,7 @@ func (s *Server) Run() error {
 // Start implements the Transport interface for stdio transport
 func (st *StdioTransport) Start() error {
 	scanner := bufio.NewScanner(os.Stdin)
-	
+
 	for scanner.Scan() {
 		line := scanner.Text()
 		if line == "" {
@@ -169,7 +168,7 @@ func (st *StdioTransport) Start() error {
 					responseID = id
 				}
 			}
-			
+
 			response := types.MCPResponse{
 				JSONRPC: "2.0",
 				ID:      responseID, // Include ID if we could extract it
@@ -203,6 +202,6 @@ func (st *StdioTransport) writeResponse(response types.MCPResponse) {
 		fmt.Fprintf(os.Stderr, "Error marshaling response: %v\n", err)
 		return
 	}
-	
+
 	fmt.Println(string(responseJSON))
 }
