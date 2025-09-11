@@ -846,6 +846,69 @@ Complete guide to mathematical functions available in expressions:
 | -32602 | Invalid Params | Invalid method parameters |
 | -32603 | Internal Error | Server internal error |
 
+#### Application-Specific Error Codes
+
+The server uses semantic HTTP status codes based on JSON-RPC error code ranges:
+
+**Authentication Errors (-1000 to -1099) → HTTP 401 Unauthorized**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -1000 | ErrorCodeAuthenticationRequired | Authentication required |
+| -1001 | ErrorCodeInvalidCredentials | Invalid username/password |
+| -1002 | ErrorCodeTokenExpired | Authentication token expired |
+| -1003 | ErrorCodeTokenInvalid | Invalid authentication token |
+
+**Authorization Errors (-1100 to -1199) → HTTP 403 Forbidden**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -1100 | ErrorCodeAccessDenied | Access denied to resource |
+| -1101 | ErrorCodeInsufficientPrivileges | Insufficient permissions |
+| -1102 | ErrorCodeResourceForbidden | Resource access forbidden |
+
+**Validation Errors (-1200 to -1299) → HTTP 422 Unprocessable Entity**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -1200 | ErrorCodeValidationFailed | Input validation failed |
+| -1201 | ErrorCodeInvalidFormat | Invalid input format |
+| -1202 | ErrorCodeMissingRequiredField | Required field missing |
+| -1203 | ErrorCodeValueOutOfRange | Value outside valid range |
+
+**Resource Not Found Errors (-1300 to -1399) → HTTP 404 Not Found**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -1300 | ErrorCodeResourceNotFound | Requested resource not found |
+| -1301 | ErrorCodeEndpointNotFound | API endpoint not found |
+| -1302 | ErrorCodeToolNotFound | Requested tool not available |
+
+**Conflict Errors (-1400 to -1499) → HTTP 409 Conflict**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -1400 | ErrorCodeResourceConflict | Resource conflict detected |
+| -1401 | ErrorCodeDuplicateResource | Duplicate resource exists |
+| -1402 | ErrorCodeConcurrencyConflict | Concurrent modification conflict |
+
+**Rate Limiting Errors (-1500 to -1599) → HTTP 429 Too Many Requests**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -1500 | ErrorCodeRateLimitExceeded | Rate limit exceeded |
+| -1501 | ErrorCodeQuotaExceeded | Usage quota exceeded |
+| -1502 | ErrorCodeTooManyRequests | Too many concurrent requests |
+
+**Business Logic Errors (-2000 to -2999) → HTTP 400 Bad Request**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -2000 | ErrorCodeBusinessRuleViolation | Business rule violation |
+| -2001 | ErrorCodeInvalidOperation | Invalid operation for current state |
+| -2002 | ErrorCodePreconditionFailed | Operation precondition not met |
+| -2003 | ErrorCodeInvalidState | Resource in invalid state |
+
+**Configuration Errors (-3000 to -3999) → HTTP 500 Internal Server Error**
+| Code | Constant | Description |
+|------|----------|-------------|
+| -3000 | ErrorCodeConfigurationError | Server configuration error |
+| -3001 | ErrorCodeServiceUnavailable | Required service unavailable |
+| -3002 | ErrorCodeDependencyFailure | External dependency failure |
+
 #### Mathematical Error Types
 | Error Category | Description | Example |
 |----------------|-------------|---------|

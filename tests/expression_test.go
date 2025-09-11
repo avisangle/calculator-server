@@ -938,6 +938,150 @@ func TestExpressionCalculator_InverseTrigFunctions(t *testing.T) {
 	}
 }
 
+func TestExpressionCalculator_ExtractVariables(t *testing.T) {
+	calc := calculator.NewExpressionCalculator()
+
+	testCases := []struct {
+		name       string
+		expression string
+		expected   []string
+		shouldErr  bool
+	}{
+		{
+			name:       "Empty expression",
+			expression: "",
+			expected:   []string{},
+			shouldErr:  false,
+		},
+		{
+			name:       "Whitespace only expression",
+			expression: "   ",
+			expected:   []string{},
+			shouldErr:  false,
+		},
+		{
+			name:       "Expression with no variables",
+			expression: "2 + 3",
+			expected:   []string{},
+			shouldErr:  false,
+		},
+		{
+			name:       "Single variable",
+			expression: "x + 5",
+			expected:   []string{"x"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Multiple variables",
+			expression: "a * b + c",
+			expected:   []string{"a", "b", "c"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Variables with underscores",
+			expression: "var_1 + var_2",
+			expected:   []string{"var_1", "var_2"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Duplicate variables",
+			expression: "x + x * y + y",
+			expected:   []string{"x", "y"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Complex expression with variables",
+			expression: "(x + y) * z / 2 + abs(w)",
+			expected:   []string{"w", "x", "y", "z"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Variables with constants - should exclude constants",
+			expression: "x + pi * y + e",
+			expected:   []string{"x", "y"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Variables with uppercase constants",
+			expression: "a + PI * b + E",
+			expected:   []string{"a", "b"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Variables with functions - should exclude function names",
+			expression: "sin(x) + cos(y) + log(z)",
+			expected:   []string{"x", "y", "z"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Mixed case variables",
+			expression: "MyVar + myOtherVar",
+			expected:   []string{"MyVar", "myOtherVar"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Variables in function arguments",
+			expression: "pow(base, exponent) + sqrt(value)",
+			expected:   []string{"base", "exponent", "value"},
+			shouldErr:  false,
+		},
+		{
+			name:       "All built-in identifiers - should return empty",
+			expression: "sin(pi) + cos(e) + log(PI) + abs(E)",
+			expected:   []string{},
+			shouldErr:  false,
+		},
+		{
+			name:       "Business formula with meaningful variable names",
+			expression: "principal * pow(1 + interest_rate, years)",
+			expected:   []string{"interest_rate", "principal", "years"},
+			shouldErr:  false,
+		},
+		{
+			name:       "Invalid expression - unmatched parentheses",
+			expression: "((x + y",
+			expected:   nil,
+			shouldErr:  true,
+		},
+		{
+			name:       "Invalid expression - consecutive operators",
+			expression: "x ++ y",
+			expected:   nil,
+			shouldErr:  true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := calc.ExtractVariables(tc.expression)
+
+			if tc.shouldErr {
+				if err == nil {
+					t.Errorf("Expected error, but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("Unexpected error: %v", err)
+				return
+			}
+
+			if len(result) != len(tc.expected) {
+				t.Errorf("Expected %d variables, got %d. Expected: %v, Got: %v",
+					len(tc.expected), len(result), tc.expected, result)
+				return
+			}
+
+			for i, expected := range tc.expected {
+				if result[i] != expected {
+					t.Errorf("At index %d: expected %s, got %s", i, expected, result[i])
+				}
+			}
+		})
+	}
+}
+
 func TestExpressionCalculator_ComplexBusinessLogic(t *testing.T) {
 	calc := calculator.NewExpressionCalculator()
 

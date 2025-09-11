@@ -11,10 +11,55 @@ import (
 )
 
 const (
+	// Standard JSON-RPC 2.0 error codes
 	ErrorCodeInvalidRequest = -32600
 	ErrorCodeMethodNotFound = -32601
 	ErrorCodeInvalidParams  = -32602
 	ErrorCodeInternalError  = -32603
+
+	// Application-specific error code ranges for semantic HTTP status mapping
+	// Authentication errors (-1000 to -1099) → HTTP 401 Unauthorized
+	ErrorCodeAuthenticationRequired = -1000
+	ErrorCodeInvalidCredentials     = -1001
+	ErrorCodeTokenExpired           = -1002
+	ErrorCodeTokenInvalid           = -1003
+
+	// Authorization errors (-1100 to -1199) → HTTP 403 Forbidden
+	ErrorCodeAccessDenied           = -1100
+	ErrorCodeInsufficientPrivileges = -1101
+	ErrorCodeResourceForbidden      = -1102
+
+	// Validation errors (-1200 to -1299) → HTTP 422 Unprocessable Entity
+	ErrorCodeValidationFailed     = -1200
+	ErrorCodeInvalidFormat        = -1201
+	ErrorCodeMissingRequiredField = -1202
+	ErrorCodeValueOutOfRange      = -1203
+
+	// Resource not found errors (-1300 to -1399) → HTTP 404 Not Found
+	ErrorCodeResourceNotFound = -1300
+	ErrorCodeEndpointNotFound = -1301
+	ErrorCodeToolNotFound     = -1302
+
+	// Conflict errors (-1400 to -1499) → HTTP 409 Conflict
+	ErrorCodeResourceConflict    = -1400
+	ErrorCodeDuplicateResource   = -1401
+	ErrorCodeConcurrencyConflict = -1402
+
+	// Rate limiting errors (-1500 to -1599) → HTTP 429 Too Many Requests
+	ErrorCodeRateLimitExceeded = -1500
+	ErrorCodeQuotaExceeded     = -1501
+	ErrorCodeTooManyRequests   = -1502
+
+	// Business logic errors (-2000 to -2999) → HTTP 400 Bad Request
+	ErrorCodeBusinessRuleViolation = -2000
+	ErrorCodeInvalidOperation      = -2001
+	ErrorCodePreconditionFailed    = -2002
+	ErrorCodeInvalidState          = -2003
+
+	// Configuration and setup errors (-3000 to -3999) → HTTP 500 Internal Server Error
+	ErrorCodeConfigurationError = -3000
+	ErrorCodeServiceUnavailable = -3001
+	ErrorCodeDependencyFailure  = -3002
 )
 
 type Server struct {

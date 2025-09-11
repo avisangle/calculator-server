@@ -322,6 +322,63 @@ func (t *StreamableHTTPTransport) setupSSEStream(w http.ResponseWriter, r *http.
 	}
 }
 
+// mapErrorCodeToHTTPStatus maps JSON-RPC error codes to appropriate HTTP status codes
+// This function provides semantic HTTP status mapping for both standard JSON-RPC codes
+// and application-specific error code ranges defined in protocol.go
+func mapErrorCodeToHTTPStatus(code int) int {
+	// Standard JSON-RPC 2.0 error codes
+	switch code {
+	case ErrorCodeInvalidRequest: // -32600
+		return http.StatusBadRequest
+	case ErrorCodeMethodNotFound: // -32601
+		return http.StatusNotFound
+	case ErrorCodeInvalidParams: // -32602
+		return http.StatusBadRequest
+	case ErrorCodeInternalError: // -32603
+		return http.StatusInternalServerError
+	}
+
+	// Application-specific error code ranges
+	switch {
+	case code >= -1099 && code <= -1000:
+		// Authentication errors → HTTP 401 Unauthorized
+		return http.StatusUnauthorized
+	case code >= -1199 && code <= -1100:
+		// Authorization errors → HTTP 403 Forbidden
+		return http.StatusForbidden
+	case code >= -1299 && code <= -1200:
+		// Validation errors → HTTP 422 Unprocessable Entity
+		return http.StatusUnprocessableEntity
+	case code >= -1399 && code <= -1300:
+		// Resource not found errors → HTTP 404 Not Found
+		return http.StatusNotFound
+	case code >= -1499 && code <= -1400:
+		// Conflict errors → HTTP 409 Conflict
+		return http.StatusConflict
+	case code >= -1599 && code <= -1500:
+		// Rate limiting errors → HTTP 429 Too Many Requests
+		return http.StatusTooManyRequests
+	case code >= -2999 && code <= -2000:
+		// Business logic errors → HTTP 400 Bad Request
+		return http.StatusBadRequest
+	case code >= -3999 && code <= -3000:
+		// Configuration and setup errors → HTTP 500 Internal Server Error
+		return http.StatusInternalServerError
+	default:
+		// Unknown error codes: categorize based on range
+		if code < -32768 {
+			// Very negative codes likely indicate server/system errors
+			return http.StatusInternalServerError
+		} else if code < 0 {
+			// Negative codes generally indicate client-side errors
+			return http.StatusBadRequest
+		} else {
+			// Positive codes are application-specific, assume client error
+			return http.StatusBadRequest
+		}
+	}
+}
+
 // writeJSONResponse writes a standard JSON response
 // Maps JSON-RPC error codes to appropriate HTTP status codes per MCP specification
 func (t *StreamableHTTPTransport) writeJSONResponse(w http.ResponseWriter, response types.MCPResponse) {
@@ -330,19 +387,7 @@ func (t *StreamableHTTPTransport) writeJSONResponse(w http.ResponseWriter, respo
 	// Determine HTTP status code based on JSON-RPC error codes
 	statusCode := http.StatusOK
 	if response.Error != nil {
-		switch response.Error.Code {
-		case ErrorCodeInvalidRequest: // -32600
-			statusCode = http.StatusBadRequest
-		case ErrorCodeMethodNotFound: // -32601
-			statusCode = http.StatusNotFound
-		case ErrorCodeInvalidParams: // -32602
-			statusCode = http.StatusBadRequest
-		case ErrorCodeInternalError: // -32603
-			statusCode = http.StatusInternalServerError
-		default:
-			// Unknown error codes default to internal server error
-			statusCode = http.StatusInternalServerError
-		}
+		statusCode = mapErrorCodeToHTTPStatus(response.Error.Code)
 	}
 
 	w.WriteHeader(statusCode)
