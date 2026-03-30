@@ -858,3 +858,8 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - 📧 Email: avinash.sangle123@gmail.com
 
 For more information about MCP servers and the Context Forge project, visit the [IBM MCP Context Forge repository](https://github.com/IBM/mcp-context-forge).
+
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/avisangle-calculator-server).
+
