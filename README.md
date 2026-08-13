@@ -1,3 +1,5 @@
+
+
 # Calculator Server - Go MCP Server
 
 A comprehensive **Go-based MCP (Model Context Protocol) server** for mathematical computations, implementing **13 mathematical tools** with advanced features and high precision calculations.
@@ -112,7 +114,7 @@ A comprehensive **Go-based MCP (Model Context Protocol) server** for mathematica
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/avisangle/calculator-server.git
 cd calculator-server
 
 # Install dependencies
